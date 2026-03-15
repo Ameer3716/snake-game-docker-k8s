@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+
+  frontend:
+    build: ./frontend
+    container_name: snake-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - game-network
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: snake-backend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    environment:
+      - MONGO_URI=mongodb://db:27017/snakegame
+    networks:
+      - game-network
+    restart: unless-stopped
+
+  db:
+    image: mongo:6-jammy
+    container_name: snake-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - game-network
+    restart: unless-stopped
+
+networks:
+  game-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
