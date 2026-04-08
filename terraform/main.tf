@@ -492,6 +492,7 @@ resource "aws_security_group_rule" "web_from_alb" {
   description              = "HTTP only from ALB"
 }
 
+# [Member 2] - Task 5: Deployed Application Load Balancer
 # ─── Application Load Balancer ────────────────────────────────────────────────
 resource "aws_lb" "web_alb" {
   name               = "web-alb"
