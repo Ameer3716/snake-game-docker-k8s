@@ -1,3 +1,4 @@
+# [Member 2] - Task 6: Configured Packer AMI Builder
 packer {
   required_plugins {
     amazon = {
