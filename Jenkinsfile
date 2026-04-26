@@ -4,7 +4,7 @@ pipeline {
     environment {
         APP_DIR       = 'assignment-4/app'
         SLACK_WEBHOOK = credentials('slack-webhook-url')
-        GIT_SHORT_SHA = ''
+        GIT_SHORT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
     }
 
     options {
@@ -15,16 +15,7 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
-            steps {
-                checkout scm
-                script {
-                    env.GIT_SHORT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                }
-                echo "Branch : ${env.BRANCH_NAME}"
-                echo "Commit : ${env.GIT_SHORT_SHA}"
-            }
-        }
+        
 
         stage('Build') {
             steps {
