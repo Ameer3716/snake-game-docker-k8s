@@ -375,6 +375,7 @@ resource "aws_launch_template" "web_lt" {
   }
 }
 
+# [Member 2] - Task 4: Configured Auto Scaling Group and CloudWatch Alarms
 # ─── Auto Scaling Group ────────────────────────────────────────────────────────
 resource "aws_autoscaling_group" "web_asg" {
   name                = "web-asg"
@@ -491,6 +492,7 @@ resource "aws_security_group_rule" "web_from_alb" {
   description              = "HTTP only from ALB"
 }
 
+# [Member 2] - Task 5: Deployed Application Load Balancer
 # ─── Application Load Balancer ────────────────────────────────────────────────
 resource "aws_lb" "web_alb" {
   name               = "web-alb"
