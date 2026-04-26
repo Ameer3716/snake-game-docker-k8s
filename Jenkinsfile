@@ -1,3 +1,5 @@
+@Library('jenkins-shared-library') _
+
 pipeline {
     agent { label 'linux-agent' }
 
@@ -15,7 +17,13 @@ pipeline {
 
     stages {
 
-        
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "Branch : ${env.BRANCH_NAME}"
+                echo "Commit : ${env.GIT_SHORT_SHA}"
+            }
+        }
 
         stage('Build') {
             steps {
@@ -122,26 +130,21 @@ pipeline {
             cleanWs()
         }
 
+        // Task 3: Using notifySlack from jenkins-shared-library
         success {
-            script {
-                def msg = ":white_check_mark: *BUILD SUCCEEDED*\\n*Job:* ${env.JOB_NAME}\\n*Branch:* ${env.BRANCH_NAME}\\n*Build:* #${env.BUILD_NUMBER}\\n*Commit:* ${env.GIT_SHORT_SHA}\\n*Duration:* ${currentBuild.durationString}\\n*URL:* ${env.BUILD_URL}"
-                sh """
-                    curl -s -X POST -H 'Content-type: application/json' \
-                    --data '{"attachments":[{"color":"good","text":"${msg}"}]}' \
-                    '${SLACK_WEBHOOK}'
-                """
-            }
+            notifySlack(
+                webhookUrl: env.SLACK_WEBHOOK,
+                color: 'good',
+                message: ":white_check_mark: *BUILD SUCCEEDED*\n*Job:* ${env.JOB_NAME}\n*Branch:* ${env.BRANCH_NAME}\n*Build:* #${env.BUILD_NUMBER}\n*Commit:* ${env.GIT_SHORT_SHA}\n*Duration:* ${currentBuild.durationString}\n*URL:* ${env.BUILD_URL}"
+            )
         }
 
         failure {
-            script {
-                def msg = ":x: *BUILD FAILED*\\n*Job:* ${env.JOB_NAME}\\n*Branch:* ${env.BRANCH_NAME}\\n*Build:* #${env.BUILD_NUMBER}\\n*Commit:* ${env.GIT_SHORT_SHA}\\n*Result:* ${currentBuild.result}\\n*URL:* ${env.BUILD_URL}\\nCheck the console output for the failing stage."
-                sh """
-                    curl -s -X POST -H 'Content-type: application/json' \
-                    --data '{"attachments":[{"color":"danger","text":"${msg}"}]}' \
-                    '${SLACK_WEBHOOK}'
-                """
-            }
+            notifySlack(
+                webhookUrl: env.SLACK_WEBHOOK,
+                color: 'danger',
+                message: ":x: *BUILD FAILED*\n*Job:* ${env.JOB_NAME}\n*Branch:* ${env.BRANCH_NAME}\n*Build:* #${env.BUILD_NUMBER}\n*Commit:* ${env.GIT_SHORT_SHA}\n*Result:* ${currentBuild.result}\n*URL:* ${env.BUILD_URL}\nCheck the console output for the failing stage."
+            )
         }
 
     }
