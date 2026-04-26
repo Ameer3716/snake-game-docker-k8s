@@ -1,0 +1,20 @@
+# Terraform
+assignment-4/terraform/.terraform/
+assignment-4/terraform/terraform.tfstate
+assignment-4/terraform/terraform.tfstate.backup
+
+# Node
+assignment-4/app/node_modules/
+assignment-4/app/coverage/
+assignment-4/app/test-results/
+
+# Private Keys
+*.pem
+*.pub
+
+# Shared Library (lives in its own separate repo)
+assignment-4/jenkins-shared-library/
+
+# OS
+.DS_Store
+Thumbs.db
