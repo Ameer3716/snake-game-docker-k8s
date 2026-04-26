@@ -2,7 +2,7 @@ const { multiply, divide } = require('../../server');
 
 describe('Unit Tests - Math Functions', () => {
  test('multiply: 3 * 4 = 12', () => {
-    expect(multiply(3, 4)).toBe(99);  // intentionally wrong
+    expect(multiply(3, 4)).toBe(12);  // intentionally wrong
 });
   test('multiply: negative numbers', () => {
     expect(multiply(-2, 5)).toBe(-10);
