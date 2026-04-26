@@ -1,0 +1,145 @@
+pipeline {
+    agent { label 'linux-agent' }
+
+    parameters {
+        choice(
+            name: 'ACTION',
+            choices: ['plan', 'apply', 'destroy'],
+            description: 'Terraform action to perform'
+        )
+        booleanParam(
+            name: 'AUTO_APPROVE',
+            defaultValue: false,
+            description: 'Skip manual approval step'
+        )
+    }
+
+    environment {
+        TF_DIR         = 'terraform'
+        TF_VAR_my_ip   = credentials('my-ip-cidr')
+        AWS_REGION     = 'us-east-1'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "Action: ${params.ACTION}, Auto-approve: ${params.AUTO_APPROVE}"
+            }
+        }
+
+        stage('Fmt & Validate') {
+            steps {
+                dir(TF_DIR) {
+                    withCredentials([
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
+                        sh '''
+                            terraform init -backend=false
+                            echo "--- Checking formatting ---"
+                            terraform fmt -check -recursive
+                            echo "--- Validating configuration ---"
+                            terraform validate
+                            echo "Fmt & Validate: PASSED"
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Security Scan — tfsec') {
+            steps {
+                dir(TF_DIR) {
+                    sh '''
+                        tfsec . \
+                          --format json \
+                          --out ../tfsec-report.json \
+                          --minimum-severity HIGH || true
+
+                        tfsec . --minimum-severity HIGH
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'tfsec-report.json', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Plan') {
+            steps {
+                dir(TF_DIR) {
+                    withCredentials([
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
+                        sh '''
+                            terraform init
+                            terraform plan -out=tfplan -detailed-exitcode | tee plan-output.txt
+                        '''
+                        archiveArtifacts artifacts: 'tfplan,plan-output.txt'
+                    }
+                }
+            }
+        }
+
+        stage('Manual Approval') {
+            when {
+                allOf {
+                    anyOf {
+                        expression { params.ACTION == 'apply' }
+                        expression { params.ACTION == 'destroy' }
+                    }
+                    expression { !params.AUTO_APPROVE }
+                }
+            }
+            steps {
+                timeout(time: 30, unit: 'MINUTES') {
+                    input(
+                        message: "Approve ${params.ACTION.toUpperCase()}?\nReview plan-output.txt artifact before approving.",
+                        ok: "Yes, ${params.ACTION}!"
+                    )
+                }
+            }
+        }
+
+        stage('Apply / Destroy') {
+            when {
+                anyOf {
+                    expression { params.ACTION == 'apply' }
+                    expression { params.ACTION == 'destroy' }
+                }
+            }
+            steps {
+                dir(TF_DIR) {
+                    withCredentials([
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
+                        script {
+                            if (params.ACTION == 'apply') {
+                                sh 'terraform apply tfplan'   // Uses the exact saved plan
+                            } else {
+                                sh 'terraform destroy -auto-approve'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'terraform/plan-output.txt', allowEmptyArchive: true
+        }
+        success {
+            echo "Terraform ${params.ACTION} completed successfully"
+        }
+        failure {
+            echo "Terraform ${params.ACTION} FAILED — check console output"
+        }
+    }
+}

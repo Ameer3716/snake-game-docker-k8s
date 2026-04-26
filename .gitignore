@@ -18,3 +18,10 @@ assignment-4/jenkins-shared-library/
 # OS
 .DS_Store
 Thumbs.db
+terraform-user_accessKeys.csv
+terraform-user_credentials.csv
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+terraform/.terraform.lock.hcl

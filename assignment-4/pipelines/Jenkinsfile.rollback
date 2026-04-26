@@ -1,0 +1,63 @@
+pipeline {
+    agent { label 'linux-agent' }
+
+    environment {
+        AWS_REGION       = 'us-east-1'
+        ALB_LISTENER_ARN = '<your-listener-arn>'
+        TG_BLUE_ARN      = '<your-blue-tg-arn>'
+        TG_GREEN_ARN     = '<your-green-tg-arn>'
+    }
+
+    stages {
+        stage('Rollback — Flip ALB') {
+            steps {
+                script {
+                    // Find current live color
+                    def liveTgArn = sh(
+                        script: """
+                            aws elbv2 describe-listeners \
+                              --listener-arns ${ALB_LISTENER_ARN} \
+                              --region ${AWS_REGION} \
+                              --query 'Listeners[0].DefaultActions[0].TargetGroupArn' \
+                              --output text
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    def liveColor = liveTgArn == env.TG_BLUE_ARN ? 'blue' : 'green'
+                    def rollbackTgArn = liveColor == 'blue' ? env.TG_GREEN_ARN : env.TG_BLUE_ARN
+                    def rollbackColor = liveColor == 'blue' ? 'green' : 'blue'
+
+                    echo "Rolling back: ${liveColor} → ${rollbackColor}"
+
+                    // Scale up rollback ASG first
+                    sh """
+                        aws autoscaling set-desired-capacity \
+                          --auto-scaling-group-name asg-${rollbackColor} \
+                          --desired-capacity 1 \
+                          --region ${AWS_REGION}
+                    """
+
+                    sleep(time: 60, unit: 'SECONDS')
+
+                    // Flip listener
+                    sh """
+                        aws elbv2 modify-listener \
+                          --listener-arn ${ALB_LISTENER_ARN} \
+                          --default-actions Type=forward,TargetGroupArn=${rollbackTgArn} \
+                          --region ${AWS_REGION}
+                    """
+
+                    echo "✅ ROLLBACK COMPLETE — Traffic now on ${rollbackColor}"
+
+                    // Log rollback to S3
+                    def timestamp = sh(script: 'date -u +%Y-%m-%dT%H:%M:%SZ', returnStdout: true).trim()
+                    sh """
+                        echo '{"timestamp":"${timestamp}","result":"rolled-back","from":"${liveColor}","to":"${rollbackColor}"}' >> /tmp/deploy.log
+                        aws s3 cp /tmp/deploy.log s3://devops-tf-state-<SUFFIX>/deployment-log.json --region ${AWS_REGION}
+                    """
+                }
+            }
+        }
+    }
+}

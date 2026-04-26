@@ -1,0 +1,3 @@
+# CVE-2023-XXXXX: Low-risk issue in Alpine base, fix not yet available
+# Justification: Not exploitable in our use case, monitored in security backlog
+# CVE-2023-XXXXX

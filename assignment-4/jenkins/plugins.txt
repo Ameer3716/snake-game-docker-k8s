@@ -1,0 +1,13 @@
+pipeline
+git
+github-branch-source
+docker-workflow
+credentials-binding
+pipeline-utility-steps
+sonar
+blueocean
+workflow-aggregator
+junit
+slack
+email-ext
+matrix-auth

@@ -30,5 +30,5 @@ variable "my_ip" {
 variable "desired_capacity" {
   description = "Desired capacity for ASG"
   type        = number
-  default     = 1
+  default     = 2
 }

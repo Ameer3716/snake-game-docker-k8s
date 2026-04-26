@@ -1,6 +1,6 @@
 terraform {
   required_providers {
-    aws    = { source = "hashicorp/aws", version = "~> 5.0" }
+    aws    = { source = "hashicorp/aws", version = "~> 6.0" }
     random = { source = "hashicorp/random", version = "~> 3.0" }
     tls    = { source = "hashicorp/tls", version = "~> 4.0" }
     local  = { source = "hashicorp/local", version = "~> 2.0" }
@@ -56,6 +56,13 @@ resource "aws_subnet" "public_2" {
   map_public_ip_on_launch = true
   tags                    = { Name = "public-subnet-2" }
 }
+resource "aws_subnet" "public_3" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "${var.aws_region}c"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "public-subnet-3" }
+}
 
 # ─── Private Subnets ───────────────────────────────────────────────────────────
 resource "aws_subnet" "private_1" {
@@ -90,6 +97,10 @@ resource "aws_route_table_association" "public_1" {
 
 resource "aws_route_table_association" "public_2" {
   subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public.id
+}
+resource "aws_route_table_association" "public_3" {
+  subnet_id      = aws_subnet.public_3.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -296,6 +307,19 @@ resource "aws_s3_bucket_public_access_block" "tf_state" {
   restrict_public_buckets = true
 }
 
+resource "aws_s3_bucket_lifecycle_configuration" "tf_state_lifecycle" {
+  bucket = aws_s3_bucket.tf_state.id
+
+  rule {
+    id     = "delete-noncurrent-versions"
+    status = "Enabled"
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
+}
+
 # ─── DynamoDB for State Locking ────────────────────────────────────────────────
 resource "aws_dynamodb_table" "tf_lock" {
   name         = "terraform-state-lock"
@@ -379,8 +403,8 @@ resource "aws_launch_template" "web_lt" {
 # ─── Auto Scaling Group ────────────────────────────────────────────────────────
 resource "aws_autoscaling_group" "web_asg" {
   name                = "web-asg"
-  min_size            = 1
-  max_size            = 3
+  min_size            = 3
+  max_size            = 5
   desired_capacity    = var.desired_capacity
   vpc_zone_identifier = [aws_subnet.public_1.id, aws_subnet.public_2.id]
 
